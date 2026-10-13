@@ -3,17 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<!-- CSP: sumber video/embed bebas (https/http), tapi script hanya dari file ini + hls.min.js lokal.
+     Catatan: frame-ancestors (anti-clickjacking) tidak bisa lewat meta, set di header server. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; frame-src https: http:; media-src https: http: blob: 'self'; connect-src 'self' https: http: blob:; worker-src blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Koleksi Video</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%230a0a0b'/%3E%3Cpath d='M6 4.5v7l6-3.5z' fill='%23fafafa'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #0a0a0b;
     --surface: #141416;
     --surface-hover: #1a1a1d;
     --text: #fafafa;
-    --text-muted: #8a8a8a;      /* bumped: WCAG AA pass */
+    --text-muted: #8a8a8a;
     --border: #1c1c1e;
     --border-hover: #2d2d30;
     --radius: 8px;
@@ -34,18 +40,24 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /* viewport height: 100vh fallback, 100dvh modern */
   #app {
+    display: block;
     height: 100vh;
     height: 100dvh;
     max-width: 1600px;
     margin: 0 auto;
     padding: var(--pad);
-    display: flex;
-    flex-direction: column;
   }
 
-  /* ---------- META ---------- */
+  #player {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--gap);
+    min-height: 0;
+  }
 
   #meta {
     flex-shrink: 0;
@@ -59,74 +71,40 @@
     text-transform: uppercase;
     color: var(--text-muted);
     user-select: none;
-    margin-bottom: 24px;
+    white-space: nowrap;
   }
-  #meta .num {
-    color: var(--text);
-    font-variant-numeric: tabular-nums;
-  }
-  #meta .sep { color: var(--text-muted); }
-
-  /* ---------- PLAYER: grid 1fr(auto) ----------
-     Row 1 = stage (ambil sisa ruang)
-     Row 2 = controls (auto = tinggi tombol) */
-
-  #player {
-    flex: 1;
-    min-height: 0;
-    display: grid;
-    grid-template-rows: 1fr auto;
-    gap: var(--gap);
-  }
+  #meta .num { color: var(--text); font-variant-numeric: tabular-nums; }
 
   #stage {
+    flex-shrink: 1;
     min-height: 0;
-    min-width: 0;
+    max-width: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
-    position: relative;
   }
+  /* Pesan & fallback boleh di-scroll di layar pendek */
+  #stage.scroll { overflow: auto; max-height: 100%; align-items: flex-start; }
 
-  /* Video: natural size, dibatasi parent */
-  #stage video {
-    display: block;
-    max-width: 100%;
-    max-height: 100%;
-    width: auto;
-    height: auto;
-    border: 0;
-    background: #000;
-    border-radius: 6px;
-    box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.06),
-      0 24px 48px -16px rgba(0, 0, 0, 0.9);
-  }
-
-  /* YouTube iframe: aspect-ratio + auto sizing */
+  #stage video,
   #stage iframe {
     display: block;
-    aspect-ratio: 16 / 9;
-    width: 100%;
-    height: auto;
     max-width: 100%;
     max-height: 100%;
     border: 0;
     background: #000;
     border-radius: 6px;
-    box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.06),
-      0 24px 48px -16px rgba(0, 0, 0, 0.9);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 24px 48px -16px rgba(0,0,0,0.9);
   }
 
-  /* ---------- CONTROLS ---------- */
-
   #controls {
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 10px;
     user-select: none;
+    flex-wrap: wrap;
   }
 
   .btn {
@@ -145,81 +123,67 @@
     font-weight: 500;
     cursor: pointer;
     transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+    white-space: nowrap;
   }
-
-  .btn:hover:not(:disabled) {
-    background: var(--surface);
-    border-color: var(--border-hover);
-  }
+  .btn:hover:not(:disabled) { background: var(--surface); border-color: var(--border-hover); }
   .btn:active:not(:disabled) { transform: scale(0.98); }
-  .btn:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+  .btn:focus-visible, .fallback-link:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
   .btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
   .btn svg {
-    width: 14px;
-    height: 14px;
-    flex-shrink: 0;
-    stroke: currentColor;
-    fill: none;
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
+    width: 14px; height: 14px; flex-shrink: 0;
+    stroke: currentColor; fill: none; stroke-width: 2;
+    stroke-linecap: round; stroke-linejoin: round;
     transition: transform 0.2s ease;
   }
   #prev:hover:not(:disabled) svg { transform: translateX(-2px); }
   #next:hover:not(:disabled) svg { transform: translateX(2px); }
 
-  /* ---------- FALLBACK / MSG ---------- */
-
-  #msg {
+  .fallback-link {
+    flex-basis: 100%;
+    text-align: center;
+    font-size: 12px;
     color: var(--text-muted);
-    font-size: 14px;
-    text-align: center;
-    padding: 40px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
+  .fallback-link:hover { color: var(--text); }
 
-  #fileWrap {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 20px;
-    text-align: center;
-  }
+  #msg { color: var(--text-muted); font-size: 14px; text-align: center; padding: 40px; }
+
+  #fileWrap { display: flex; flex-direction: column; align-items: center; gap: 20px; text-align: center; padding: 8px 0; }
   #fileWrap p { color: var(--text-muted); font-size: 13px; max-width: 320px; line-height: 1.6; }
   #fileWrap strong { color: var(--text); font-weight: 500; }
   #fileWrap label {
-    display: inline-flex;
-    align-items: center;
-    height: 40px;
-    padding: 0 20px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text);
-    cursor: pointer;
+    display: inline-flex; align-items: center; height: 40px; padding: 0 20px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    font-size: 13px; font-weight: 500; color: var(--text); cursor: pointer;
     transition: background 0.15s, border-color 0.15s;
   }
-  #fileWrap label:hover { background: var(--surface-hover); border-color: var(--border-hover); }
-  #fileWrap input { display: none; }
+  #fileWrap label:hover, #fileWrap label:focus-within { background: var(--surface-hover); border-color: var(--border-hover); }
+  /* disembunyikan secara visual, tetap bisa difokus keyboard */
+  #fileWrap input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
   #fileWrap code {
-    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-    font-size: 12px;
-    color: var(--text-muted);
-    background: var(--surface);
-    padding: 2px 6px;
-    border-radius: 4px;
-    border: 1px solid var(--border);
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; color: var(--text-muted);
+    background: var(--surface); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border);
   }
 
   @media (max-width: 640px) {
     :root { --pad: 20px; --gap: 16px; }
-    #meta { margin-bottom: 16px; }
     .btn { height: 38px; padding: 0 14px; font-size: 12px; }
     .btn svg { width: 13px; height: 13px; }
   }
-
+  @media (max-width: 380px) {
+    :root { --pad: 14px; --gap: 12px; }
+    #meta { font-size: 10px; }
+    .btn { height: 34px; padding: 0 10px; gap: 6px; font-size: 11px; }
+    .btn svg { width: 12px; height: 12px; }
+    #controls { gap: 6px; }
+  }
+  @media (max-height: 420px) {
+    :root { --gap: 12px; }
+    .btn { height: 34px; padding: 0 12px; font-size: 12px; }
+  }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { transition: none !important; animation: none !important; }
   }
@@ -233,17 +197,17 @@
   </div>
 </noscript>
 
-<div id="app">
-
-  <div id="meta">
-    <span>Koleksi</span>
-    <span class="sep">·</span>
-    <span><span class="num" id="count">0</span> video</span>
-  </div>
-
+<main id="app">
   <div id="player">
+
+    <div id="meta">
+      <span>Koleksi</span>
+      <span aria-hidden="true">·</span>
+      <span><span class="num" id="count">0</span> video</span>
+    </div>
+
     <div id="stage">
-      <div id="msg">Memuat…</div>
+      <div id="msg" role="status">Memuat…</div>
     </div>
 
     <div id="controls">
@@ -256,39 +220,43 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
     </div>
-  </div>
 
-</div>
+  </div>
+</main>
 
 <script>
 (() => {
   'use strict';
 
-  const LS_KEY  = 'videoPlayer:index';
+  const LS_KEY = 'videoPlayer:index';
   const FETCH_TIMEOUT_MS = 10000;
+  const AR_WIDE  = 16 / 9;
+  const AR_SHORT = 9 / 16;
+  const VIDEO_EXT = /\.(mp4|webm|ogv|ogg|mov|m4v)$/i;
+  const HLS_EXT   = /\.m3u8$/i;
 
-  const stage   = document.getElementById('stage');
-  const countEl = document.getElementById('count');
-  const prevBtn = document.getElementById('prev');
-  const nextBtn = document.getElementById('next');
+  const playerEl   = document.getElementById('player');
+  const stage      = document.getElementById('stage');
+  const metaEl     = document.getElementById('meta');
+  const controlsEl = document.getElementById('controls');
+  const countEl    = document.getElementById('count');
+  const prevBtn    = document.getElementById('prev');
+  const nextBtn    = document.getElementById('next');
 
   let urls = [];
   let idx  = 0;
+  let currentRatio = AR_WIDE;
+  let gen = 0;          // token render; handler lama yang telat dibuang
+  let hlsInst = null;
+  let hlsPromise = null;
 
-  /* ---------- Util ---------- */
+  /* ---------- URL: allowlist http/https saja ---------- */
 
-  // Deteksi YouTube. Return { embed, isShorts } atau null.
-  function youTubeInfo(url) {
-    const m = url.match(
-      /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{6,})/
-    );
-    if (!m) return null;
-    const isShorts = /youtube\.com\/shorts\//.test(url);
-    const params = 'rel=0&modestbranding=1&playsinline=1';
-    return {
-      embed: `https://www.youtube.com/embed/${m[1]}?${params}`,
-      isShorts
-    };
+  function safeUrl(raw) {
+    try {
+      const u = new URL(raw, location.href);
+      return (u.protocol === 'https:' || u.protocol === 'http:') ? u.href : null;
+    } catch (_) { return null; }
   }
 
   function parse(text) {
@@ -296,36 +264,220 @@
       .split(/\r?\n/)
       .map(l => l.trim())
       .filter(l => l && !l.startsWith('#'))
-      // Defensif: buang skema berbahaya (tidak akan ke-load, tapi mencegah log error & misinformation)
-      .filter(u => {
-        if (/^(javascript|vbscript|file):/i.test(u)) {
-          console.warn('[videoPlayer] Skipping unsafe URL scheme:', u);
-          return false;
-        }
-        return true;
-      });
+      .map(l => {
+        const s = safeUrl(l);
+        if (!s) console.warn('[videoPlayer] URL dilewati (bukan http/https atau tidak valid):', l);
+        return s;
+      })
+      .filter(Boolean);
   }
 
-  function setCount(n) {
-    countEl.textContent = String(n);
+  /* ---------- Deteksi jenis URL ---------- */
+
+  const YT_ID = /^[\w-]{11}$/;
+
+  function embedInfo(href) {
+    const u = new URL(href);
+    const host = u.hostname.replace(/^(www|m|music)\./, '').toLowerCase();
+
+    // YouTube (bonus: otomatis jadi embed)
+    let id = null, shorts = false;
+    if (host === 'youtu.be') {
+      id = u.pathname.split('/')[1];
+    } else if (host === 'youtube.com' || host === 'youtube-nocookie.com') {
+      if (u.pathname === '/watch') id = u.searchParams.get('v');
+      else {
+        const m = u.pathname.match(/^\/(embed|shorts|live)\/([\w-]{11})/);
+        if (m) { id = m[2]; shorts = m[1] === 'shorts'; }
+      }
+    }
+    if (id && YT_ID.test(id)) {
+      return {
+        src: `https://www.youtube-nocookie.com/embed/${id}?rel=0&modestbranding=1&playsinline=1`,
+        ratio: shorts ? AR_SHORT : AR_WIDE
+      };
+    }
+
+    // Vimeo (bonus)
+    if (host === 'vimeo.com' || host === 'player.vimeo.com') {
+      const m = u.pathname.match(/(?:^\/video)?\/(\d{6,})/);
+      if (m) return { src: `https://player.vimeo.com/video/${m[1]}`, ratio: AR_WIDE };
+    }
+    return null;
   }
+
+  function classify(href) {
+    const emb = embedInfo(href);
+    if (emb) return { kind: 'iframe', src: emb.src, ratio: emb.ratio };
+
+    const path = new URL(href).pathname;
+    if (VIDEO_EXT.test(path) || HLS_EXT.test(path)) {
+      return { kind: 'video', src: href, ratio: AR_WIDE, strict: true, hls: HLS_EXT.test(path) };
+    }
+    // Jenis tidak jelas: coba <video>, kalau gagal fallback ke <iframe>
+    return { kind: 'video', src: href, ratio: AR_WIDE, strict: false, hls: false };
+  }
+
+  /* ---------- Util UI ---------- */
+
+  function setCount(n) { countEl.textContent = String(n); }
 
   function clearStage() {
     while (stage.firstChild) stage.removeChild(stage.firstChild);
   }
 
+  function releaseMedia() {
+    if (hlsInst) { try { hlsInst.destroy(); } catch (_) {} hlsInst = null; }
+    const v = stage.querySelector('video');
+    if (v) { v.pause(); v.removeAttribute('src'); v.load(); }
+  }
+
   function showMessage(text) {
+    releaseMedia();
     clearStage();
+    stage.classList.add('scroll');
     const el = document.createElement('div');
     el.id = 'msg';
+    el.setAttribute('role', 'status');
     el.textContent = text;
     stage.appendChild(el);
+  }
+
+  function removeFallbackLink() {
+    const old = controlsEl.querySelector('.fallback-link');
+    if (old) old.remove();
+  }
+
+  /* ---------- Ukuran media ---------- */
+
+  function fitMedia(mediaEl, ratio) {
+    if (!mediaEl || !ratio || !isFinite(ratio) || ratio <= 0) return;
+
+    const gap = parseFloat(getComputedStyle(playerEl).gap) || 0;
+    const availW = playerEl.clientWidth;
+    const availH = playerEl.clientHeight - metaEl.offsetHeight - controlsEl.offsetHeight - 2 * gap;
+    if (availW <= 0 || availH <= 0) return;
+
+    let w = availW;
+    let h = w / ratio;
+    if (h > availH) { h = availH; w = h * ratio; }
+
+    mediaEl.style.width  = Math.floor(w) + 'px';
+    mediaEl.style.height = Math.floor(h) + 'px';
+  }
+
+  /* ---------- hls.js (opsional, file lokal hls.min.js) ---------- */
+
+  function loadHls() {
+    if (window.Hls) return Promise.resolve(window.Hls);
+    if (!hlsPromise) {
+      hlsPromise = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'hls.min.js';
+        s.onload = () => window.Hls ? resolve(window.Hls) : reject(new Error('Hls tidak ditemukan'));
+        s.onerror = () => { hlsPromise = null; reject(new Error('hls.min.js tidak ditemukan')); };
+        document.head.appendChild(s);
+      });
+    }
+    return hlsPromise;
+  }
+
+  /* ---------- Mount media ---------- */
+
+  function mountIframe(src, ratio, originalUrl, token) {
+    if (token !== gen) return;
+    stage.classList.remove('scroll');
+    currentRatio = ratio;
+
+    const iframe = document.createElement('iframe');
+    iframe.src = src;
+    iframe.title = `Video ${idx + 1} dari ${urls.length}`;
+    iframe.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+    iframe.allowFullscreen = true;
+    iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+    // Konten pihak ketiga dibatasi: tidak boleh navigasi/redirect halaman ini
+    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation allow-popups');
+    stage.appendChild(iframe);
+
+    // Banyak situs menolak di-embed dan JS tidak bisa mendeteksinya -> sediakan jalan keluar
+    removeFallbackLink();
+    const a = document.createElement('a');
+    a.className = 'fallback-link';
+    a.href = originalUrl;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.textContent = 'Tidak muncul? Buka di tab baru';
+    controlsEl.appendChild(a);
+
+    requestAnimationFrame(() => fitMedia(iframe, currentRatio));
+  }
+
+  function mountVideo(info, originalUrl, token) {
+    stage.classList.remove('scroll');
+    currentRatio = info.ratio;
+
+    const video = document.createElement('video');
+    video.controls = true;
+    video.autoplay = true;
+    video.playsInline = true;
+    video.preload = 'metadata';
+
+    video.addEventListener('error', () => {
+      if (token !== gen || !video.isConnected) return;   // handler basi
+      if (!info.strict) {
+        // URL tidak jelas -> coba tampilkan sebagai halaman embed
+        clearStage();
+        releaseMedia();
+        mountIframe(originalUrl, AR_WIDE, originalUrl, token);
+        return;
+      }
+      const code = video.error ? video.error.code : 0;
+      let msg = 'Video tidak dapat dimuat.';
+      if (code === 1) msg = 'Pemuatan video dibatalkan.';
+      else if (code === 2) msg = 'Koneksi terputus saat memuat video.';
+      else if (code === 3) msg = 'Video tidak dapat didekode.';
+      else if (code === 4) msg = 'Format video tidak didukung, atau URL tidak valid.';
+      showMessage(msg);
+    });
+
+    video.addEventListener('loadedmetadata', () => {
+      if (token !== gen) return;
+      if (video.videoWidth && video.videoHeight) {
+        currentRatio = video.videoWidth / video.videoHeight;
+        fitMedia(video, currentRatio);
+      }
+    });
+
+    stage.appendChild(video);
+
+    if (info.hls && !video.canPlayType('application/vnd.apple.mpegurl')) {
+      // Chrome/Firefox: butuh hls.js
+      loadHls().then((Hls) => {
+        if (token !== gen) return;
+        if (!Hls.isSupported()) return showMessage('Browser ini tidak mendukung HLS.');
+        hlsInst = new Hls();
+        hlsInst.on(Hls.Events.ERROR, (_, d) => {
+          if (d && d.fatal && token === gen) showMessage('Stream HLS tidak dapat dimuat.');
+        });
+        hlsInst.loadSource(info.src);
+        hlsInst.attachMedia(video);
+      }).catch(() => {
+        if (token === gen) showMessage('Stream .m3u8 butuh file hls.min.js di folder yang sama.');
+      });
+    } else {
+      video.src = info.src;
+    }
+
+    requestAnimationFrame(() => fitMedia(video, currentRatio));
   }
 
   /* ---------- Render ---------- */
 
   function render() {
+    const token = ++gen;
+    releaseMedia();
     clearStage();
+    removeFallbackLink();
 
     if (!urls.length) {
       setCount(0);
@@ -336,52 +488,27 @@
 
     setCount(urls.length);
 
-    const url = urls[idx];
-    const yt  = youTubeInfo(url);
-
-    if (yt) {
-      const iframe = document.createElement('iframe');
-      iframe.src = yt.embed;
-      iframe.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
-      iframe.allowFullscreen = true;
-      iframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
-      // Aspect ratio via CSS — kalau shorts pakai 9/16
-      if (yt.isShorts) iframe.style.aspectRatio = '9 / 16';
-      stage.appendChild(iframe);
-    } else {
-      const video = document.createElement('video');
-      video.src = url;
-      video.controls = true;
-      video.autoplay = true;
-      video.playsInline = true;
-      video.preload = 'auto';
-      video.setAttribute('controlsList', 'nodownload');
-      video.disablePictureInPicture = true;
-
-      video.addEventListener('contextmenu', (e) => e.preventDefault());
-
-      video.addEventListener('error', () => {
-        const code = video.error ? video.error.code : 0;
-        let msg = 'Video tidak dapat dimuat.';
-        if (code === 1) msg = 'Pemuatan video dibatalkan.';
-        else if (code === 2) msg = 'Koneksi terputus saat memuat video.';
-        else if (code === 3) msg = 'Video tidak dapat didekode.';
-        else if (code === 4) msg = 'Format video tidak didukung, atau URL tidak valid.';
-        showMessage(msg);
-      });
-
-      // autoplay might reject (browser policy); that's fine
-      video.play().catch(() => {});
-
-      stage.appendChild(video);
-    }
+    const url  = urls[idx];
+    const info = classify(url);
+    if (info.kind === 'iframe') mountIframe(info.src, info.ratio, url, token);
+    else mountVideo(info, url, token);
 
     prevBtn.disabled = idx === 0;
     nextBtn.disabled = idx === urls.length - 1;
 
-    // Persist index (safe: try/catch isolated)
     try { localStorage.setItem(LS_KEY, String(idx)); } catch (_) {}
   }
+
+  /* ---------- Resize ---------- */
+
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      const media = stage.querySelector('video, iframe');
+      if (media) fitMedia(media, currentRatio);
+    }, 80);
+  });
 
   /* ---------- Navigasi ---------- */
 
@@ -396,18 +523,25 @@
   nextBtn.addEventListener('click', () => go(1));
 
   document.addEventListener('keydown', (e) => {
-    // Jangan intercept saat user sedang di form field
-    const tag = e.target && e.target.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
+    // Jangan bajak shortcut browser (Alt+← = back, dll)
+    if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
 
-    if (e.key === 'ArrowLeft')  { e.preventDefault(); go(-1); }
+    const t = e.target;
+    const tag = t && t.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'VIDEO' ||
+        (t && t.isContentEditable)) return;
+
+    if (e.key === 'ArrowLeft')       { e.preventDefault(); go(-1); }
     else if (e.key === 'ArrowRight') { e.preventDefault(); go(1); }
   });
 
-  /* ---------- Fallback UI ---------- */
+  /* ---------- Fallback: pilih file manual ---------- */
 
   function showFilePickerFallback() {
+    releaseMedia();
     clearStage();
+    removeFallbackLink();
+    stage.classList.add('scroll');
     setCount(0);
     prevBtn.disabled = nextBtn.disabled = true;
 
@@ -418,7 +552,7 @@
     p1.innerHTML = 'Gagal memuat <strong>urls.txt</strong>.<br>Pilih file secara manual:';
 
     const label = document.createElement('label');
-    label.textContent = 'Pilih urls.txt';
+    label.append('Pilih urls.txt');
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.txt,text/plain';
@@ -435,8 +569,7 @@
       const f = e.target.files && e.target.files[0];
       if (!f) return;
       try {
-        const text = await f.text();
-        parse(text);
+        parse(await f.text());
         idx = 0;
         render();
       } catch (err) {
@@ -449,7 +582,6 @@
   /* ---------- Init ---------- */
 
   async function init() {
-    // 1. Fetch urls.txt dengan timeout
     let text;
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
@@ -467,7 +599,6 @@
 
     parse(text);
 
-    // 2. Restore last index — localStorage dibungkus terpisah dari fetch
     try {
       const saved = parseInt(localStorage.getItem(LS_KEY) || '0', 10);
       if (!isNaN(saved) && saved >= 0 && saved < urls.length) idx = saved;
@@ -475,7 +606,6 @@
       console.warn('[videoPlayer] localStorage tidak tersedia:', err);
     }
 
-    // 3. Render
     render();
   }
 
