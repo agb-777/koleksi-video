@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Koleksi Video</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0b;
+    --surface: #141416;
+    --surface-hover: #1a1a1d;
+    --text: #fafafa;
+    --text-muted: #8a8a8a;      /* bumped: WCAG AA pass */
+    --border: #1c1c1e;
+    --border-hover: #2d2d30;
+    --radius: 8px;
+    --pad: 32px;
+    --gap: 20px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* viewport height: 100vh fallback, 100dvh modern */
+  #app {
+    height: 100vh;
+    height: 100dvh;
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: var(--pad);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ---------- META ---------- */
+
+  #meta {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    user-select: none;
+    margin-bottom: 24px;
+  }
+  #meta .num {
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  #meta .sep { color: var(--text-muted); }
+
+  /* ---------- PLAYER: grid 1fr(auto) ----------
+     Row 1 = stage (ambil sisa ruang)
+     Row 2 = controls (auto = tinggi tombol) */
+
+  #player {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: 1fr auto;
+    gap: var(--gap);
+  }
+
+  #stage {
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  /* Video: natural size, dibatasi parent */
+  #stage video {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    border: 0;
+    background: #000;
+    border-radius: 6px;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.06),
+      0 24px 48px -16px rgba(0, 0, 0, 0.9);
+  }
+
+  /* YouTube iframe: aspect-ratio + auto sizing */
+  #stage iframe {
+    display: block;
+    aspect-ratio: 16 / 9;
+    width: 100%;
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
+    border: 0;
+    background: #000;
+    border-radius: 6px;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.06),
+      0 24px 48px -16px rgba(0, 0, 0, 0.9);
+  }
+
+  /* ---------- CONTROLS ---------- */
+
+  #controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    user-select: none;
+  }
+
+  .btn {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    height: 40px;
+    padding: 0 16px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  }
+
+  .btn:hover:not(:disabled) {
+    background: var(--surface);
+    border-color: var(--border-hover);
+  }
+  .btn:active:not(:disabled) { transform: scale(0.98); }
+  .btn:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .btn svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform 0.2s ease;
+  }
+  #prev:hover:not(:disabled) svg { transform: translateX(-2px); }
+  #next:hover:not(:disabled) svg { transform: translateX(2px); }
+
+  /* ---------- FALLBACK / MSG ---------- */
+
+  #msg {
+    color: var(--text-muted);
+    font-size: 14px;
+    text-align: center;
+    padding: 40px;
+  }
+
+  #fileWrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    text-align: center;
+  }
+  #fileWrap p { color: var(--text-muted); font-size: 13px; max-width: 320px; line-height: 1.6; }
+  #fileWrap strong { color: var(--text); font-weight: 500; }
+  #fileWrap label {
+    display: inline-flex;
+    align-items: center;
+    height: 40px;
+    padding: 0 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  #fileWrap label:hover { background: var(--surface-hover); border-color: var(--border-hover); }
+  #fileWrap input { display: none; }
+  #fileWrap code {
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 12px;
+    color: var(--text-muted);
+    background: var(--surface);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+
+  @media (max-width: 640px) {
+    :root { --pad: 20px; --gap: 16px; }
+    #meta { margin-bottom: 16px; }
+    .btn { height: 38px; padding: 0 14px; font-size: 12px; }
+    .btn svg { width: 13px; height: 13px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<noscript>
+  <div style="padding:40px;text-align:center;color:#8a8a8a;font-family:system-ui,sans-serif;font-size:14px">
+    JavaScript diperlukan untuk menjalankan player ini.
+  </div>
+</noscript>
+
+<div id="app">
+
+  <div id="meta">
+    <span>Koleksi</span>
+    <span class="sep">·</span>
+    <span><span class="num" id="count">0</span> video</span>
+  </div>
+
+  <div id="player">
+    <div id="stage">
+      <div id="msg">Memuat…</div>
+    </div>
+
+    <div id="controls">
+      <button type="button" class="btn" id="prev" disabled>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+        <span>Sebelumnya</span>
+      </button>
+      <button type="button" class="btn" id="next" disabled>
+        <span>Selanjutnya</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const LS_KEY  = 'videoPlayer:index';
+  const FETCH_TIMEOUT_MS = 10000;
+
+  const stage   = document.getElementById('stage');
+  const countEl = document.getElementById('count');
+  const prevBtn = document.getElementById('prev');
+  const nextBtn = document.getElementById('next');
+
+  let urls = [];
+  let idx  = 0;
+
+  /* ---------- Util ---------- */
+
+  // Deteksi YouTube. Return { embed, isShorts } atau null.
+  function youTubeInfo(url) {
+    const m = url.match(
+      /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{6,})/
+    );
+    if (!m) return null;
+    const isShorts = /youtube\.com\/shorts\//.test(url);
+    const params = 'rel=0&modestbranding=1&playsinline=1';
+    return {
+      embed: `https://www.youtube.com/embed/${m[1]}?${params}`,
+      isShorts
+    };
+  }
+
+  function parse(text) {
+    urls = text
+      .split(/\r?\n/)
+      .map(l => l.trim())
+      .filter(l => l && !l.startsWith('#'))
+      // Defensif: buang skema berbahaya (tidak akan ke-load, tapi mencegah log error & misinformation)
+      .filter(u => {
+        if (/^(javascript|vbscript|file):/i.test(u)) {
+          console.warn('[videoPlayer] Skipping unsafe URL scheme:', u);
+          return false;
+        }
+        return true;
+      });
+  }
+
+  function setCount(n) {
+    countEl.textContent = String(n);
+  }
+
+  function clearStage() {
+    while (stage.firstChild) stage.removeChild(stage.firstChild);
+  }
+
+  function showMessage(text) {
+    clearStage();
+    const el = document.createElement('div');
+    el.id = 'msg';
+    el.textContent = text;
+    stage.appendChild(el);
+  }
+
+  /* ---------- Render ---------- */
+
+  function render() {
+    clearStage();
+
+    if (!urls.length) {
+      setCount(0);
+      showMessage('Belum ada video dalam koleksi.');
+      prevBtn.disabled = nextBtn.disabled = true;
+      return;
+    }
+
+    setCount(urls.length);
+
+    const url = urls[idx];
+    const yt  = youTubeInfo(url);
+
+    if (yt) {
+      const iframe = document.createElement('iframe');
+      iframe.src = yt.embed;
+      iframe.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+      iframe.allowFullscreen = true;
+      iframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+      // Aspect ratio via CSS — kalau shorts pakai 9/16
+      if (yt.isShorts) iframe.style.aspectRatio = '9 / 16';
+      stage.appendChild(iframe);
+    } else {
+      const video = document.createElement('video');
+      video.src = url;
+      video.controls = true;
+      video.autoplay = true;
+      video.playsInline = true;
+      video.preload = 'auto';
+      video.setAttribute('controlsList', 'nodownload');
+      video.disablePictureInPicture = true;
+
+      video.addEventListener('contextmenu', (e) => e.preventDefault());
+
+      video.addEventListener('error', () => {
+        const code = video.error ? video.error.code : 0;
+        let msg = 'Video tidak dapat dimuat.';
+        if (code === 1) msg = 'Pemuatan video dibatalkan.';
+        else if (code === 2) msg = 'Koneksi terputus saat memuat video.';
+        else if (code === 3) msg = 'Video tidak dapat didekode.';
+        else if (code === 4) msg = 'Format video tidak didukung, atau URL tidak valid.';
+        showMessage(msg);
+      });
+
+      // autoplay might reject (browser policy); that's fine
+      video.play().catch(() => {});
+
+      stage.appendChild(video);
+    }
+
+    prevBtn.disabled = idx === 0;
+    nextBtn.disabled = idx === urls.length - 1;
+
+    // Persist index (safe: try/catch isolated)
+    try { localStorage.setItem(LS_KEY, String(idx)); } catch (_) {}
+  }
+
+  /* ---------- Navigasi ---------- */
+
+  function go(delta) {
+    const next = idx + delta;
+    if (next < 0 || next >= urls.length) return;
+    idx = next;
+    render();
+  }
+
+  prevBtn.addEventListener('click', () => go(-1));
+  nextBtn.addEventListener('click', () => go(1));
+
+  document.addEventListener('keydown', (e) => {
+    // Jangan intercept saat user sedang di form field
+    const tag = e.target && e.target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
+
+    if (e.key === 'ArrowLeft')  { e.preventDefault(); go(-1); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); go(1); }
+  });
+
+  /* ---------- Fallback UI ---------- */
+
+  function showFilePickerFallback() {
+    clearStage();
+    setCount(0);
+    prevBtn.disabled = nextBtn.disabled = true;
+
+    const wrap = document.createElement('div');
+    wrap.id = 'fileWrap';
+
+    const p1 = document.createElement('p');
+    p1.innerHTML = 'Gagal memuat <strong>urls.txt</strong>.<br>Pilih file secara manual:';
+
+    const label = document.createElement('label');
+    label.textContent = 'Pilih urls.txt';
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.txt,text/plain';
+    label.appendChild(input);
+
+    const p2 = document.createElement('p');
+    p2.style.fontSize = '12px';
+    p2.innerHTML = 'Atau jalankan <code>python -m http.server</code> di folder ini,<br>lalu buka <code>http://localhost:8000</code>';
+
+    wrap.append(p1, label, p2);
+    stage.appendChild(wrap);
+
+    input.addEventListener('change', async (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      try {
+        const text = await f.text();
+        parse(text);
+        idx = 0;
+        render();
+      } catch (err) {
+        console.error('[videoPlayer] Gagal membaca file:', err);
+        showMessage('Gagal membaca file.');
+      }
+    });
+  }
+
+  /* ---------- Init ---------- */
+
+  async function init() {
+    // 1. Fetch urls.txt dengan timeout
+    let text;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+    try {
+      const res = await fetch('urls.txt', { cache: 'no-store', signal: ctrl.signal });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      text = await res.text();
+    } catch (err) {
+      console.error('[videoPlayer] Gagal memuat urls.txt:', err);
+      clearTimeout(timer);
+      showFilePickerFallback();
+      return;
+    }
+    clearTimeout(timer);
+
+    parse(text);
+
+    // 2. Restore last index — localStorage dibungkus terpisah dari fetch
+    try {
+      const saved = parseInt(localStorage.getItem(LS_KEY) || '0', 10);
+      if (!isNaN(saved) && saved >= 0 && saved < urls.length) idx = saved;
+    } catch (err) {
+      console.warn('[videoPlayer] localStorage tidak tersedia:', err);
+    }
+
+    // 3. Render
+    render();
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
